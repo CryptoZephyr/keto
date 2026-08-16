@@ -1,0 +1,27 @@
+[
+  {
+    "nodes": [
+      {
+        "properties": {
+          "path": "src/auth.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/auth.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/user.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/user.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/user.test.ts",
+          "kind": "test",
+          "stable_key": "keto-fixture:src/user.test.ts:test"
+        }
+      }
+    ]
+  }
+]

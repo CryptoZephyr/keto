@@ -1,0 +1,41 @@
+[
+  {
+    "nodes": [
+      {
+        "properties": {
+          "path": "src/leaf.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/leaf.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/mid3.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/mid3.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/mid2.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/mid2.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/mid1.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/mid1.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/mid1.test.ts",
+          "kind": "test",
+          "stable_key": "keto-fixture:src/mid1.test.ts:test"
+        }
+      }
+    ]
+  }
+]

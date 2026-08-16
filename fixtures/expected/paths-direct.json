@@ -1,0 +1,20 @@
+[
+  {
+    "nodes": [
+      {
+        "properties": {
+          "path": "src/util.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/util.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/util.test.ts",
+          "kind": "test",
+          "stable_key": "keto-fixture:src/util.test.ts:test"
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,228 @@
+{
+  "cases": [
+    {
+      "id": "changed_path_absent",
+      "input": {
+        "changedPaths": ["src/ghost.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"]
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "changed_path_absent"
+    },
+    {
+      "id": "parse_error",
+      "input": {
+        "changedPaths": ["src/broken.ts"],
+        "indexedPaths": ["src/broken.ts"],
+        "coverageWarnings": [
+          {
+            "type": "parse_error",
+            "path": "src/broken.ts",
+            "detail": "unexpected token"
+          }
+        ],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "parse_error"
+    },
+    {
+      "id": "unresolved_import",
+      "input": {
+        "changedPaths": ["src/user.ts"],
+        "indexedPaths": ["src/user.ts"],
+        "coverageWarnings": [
+          {
+            "type": "unresolved",
+            "path": "src/user.ts",
+            "specifier": "./missing",
+            "detail": "could not resolve ./missing"
+          }
+        ],
+        "selectedTests": ["src/user.test.ts"]
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "unresolved_import"
+    },
+    {
+      "id": "dynamic_import",
+      "input": {
+        "changedPaths": ["src/dynamic.ts"],
+        "indexedPaths": ["src/dynamic.ts"],
+        "coverageWarnings": [
+          {
+            "type": "dynamic_import",
+            "path": "src/dynamic.ts",
+            "detail": "dynamic import()"
+          }
+        ],
+        "selectedTests": ["src/dynamic.test.ts"]
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "dynamic_import"
+    },
+    {
+      "id": "root_config",
+      "input": {
+        "changedPaths": ["package.json"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "root_config"
+    },
+    {
+      "id": "lockfile",
+      "input": {
+        "changedPaths": ["package-lock.json"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "lockfile"
+    },
+    {
+      "id": "test_config",
+      "input": {
+        "changedPaths": ["vitest.config.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "test_config"
+    },
+    {
+      "id": "shared_tooling",
+      "input": {
+        "changedPaths": ["webpack.config.js"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "shared_tooling"
+    },
+    {
+      "id": "hydradb_unavailable",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"],
+        "hydraError": { "kind": "unavailable", "message": "ECONNREFUSED" }
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "hydradb_unavailable"
+    },
+    {
+      "id": "hydradb_timeout",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"],
+        "hydraError": { "kind": "timeout", "message": "timed out" }
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "hydradb_timeout"
+    },
+    {
+      "id": "hydradb_rejected",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"],
+        "hydraError": { "kind": "rejected", "message": "unsupported query" }
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "hydradb_rejected"
+    },
+    {
+      "id": "hydradb_budget",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"],
+        "hydraError": { "kind": "budget", "message": "AdmissionRejected" }
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "hydradb_budget"
+    },
+    {
+      "id": "fixture_mismatch",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts", "src/util.test.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/wrong.test.ts"],
+        "fixtureComparison": {
+          "match": false,
+          "missing": ["src/util.test.ts"],
+          "unexpected": ["src/wrong.test.ts"],
+          "detail": "impact mismatch"
+        }
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "fixture_mismatch"
+    },
+    {
+      "id": "empty_result_nontrivial",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts", "src/util.test.ts"],
+        "coverageWarnings": [],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "empty_result_nontrivial"
+    },
+    {
+      "id": "missing_file",
+      "input": {
+        "changedPaths": ["src/user.ts"],
+        "indexedPaths": ["src/user.ts"],
+        "coverageWarnings": [
+          {
+            "type": "missing_file",
+            "path": "src/user.ts",
+            "specifier": "./gone",
+            "detail": "resolved path is not a CodeEntity"
+          }
+        ],
+        "selectedTests": []
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "missing_file"
+    },
+    {
+      "id": "query_limit",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"],
+        "queryLimitExceeded": true
+      },
+      "expectedMode": "full_suite",
+      "expectedCode": "query_limit"
+    },
+    {
+      "id": "selected_when_safe",
+      "input": {
+        "changedPaths": ["src/util.ts"],
+        "indexedPaths": ["src/util.ts", "src/util.test.ts"],
+        "coverageWarnings": [],
+        "selectedTests": ["src/util.test.ts"]
+      },
+      "expectedMode": "selected",
+      "expectedCode": null
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "repository": "keto-fixture",
+  "cases": [
+    {
+      "id": "direct",
+      "changed": ["src/util.ts"],
+      "affected_tests": ["src/util.test.ts"],
+      "must_not_select": ["src/isolated.test.ts"]
+    },
+    {
+      "id": "two-hop",
+      "changed": ["src/auth.ts"],
+      "affected_tests": ["src/user.test.ts"]
+    },
+    {
+      "id": "four-hop",
+      "changed": ["src/leaf.ts"],
+      "affected_tests": ["src/mid1.test.ts"]
+    },
+    {
+      "id": "unaffected",
+      "changed": ["src/util.ts"],
+      "affected_tests": ["src/util.test.ts"],
+      "must_not_select": ["src/isolated.test.ts"]
+    },
+    {
+      "id": "cycle",
+      "changed": ["src/cycle-b.ts"],
+      "affected_tests": ["src/cycle.test.ts"]
+    },
+    {
+      "id": "dynamic",
+      "changed": ["src/dynamic.ts"],
+      "fallback": "dynamic_import"
+    },
+    {
+      "id": "missed-dependency",
+      "changed": ["src/opaque.ts"],
+      "fallback": "dynamic_import"
+    },
+    {
+      "id": "root-config",
+      "changed": ["package.json"],
+      "fallback": "root_config"
+    }
+  ]
+}

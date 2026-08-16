@@ -1,0 +1,27 @@
+[
+  {
+    "nodes": [
+      {
+        "properties": {
+          "path": "src/cycle-b.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/cycle-b.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/cycle-a.ts",
+          "kind": "file",
+          "stable_key": "keto-fixture:src/cycle-a.ts:file"
+        }
+      },
+      {
+        "properties": {
+          "path": "src/cycle.test.ts",
+          "kind": "test",
+          "stable_key": "keto-fixture:src/cycle.test.ts:test"
+        }
+      }
+    ]
+  }
+]
