@@ -1,13 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
 import { buildGraph } from "../src/extract.js";
 
-const httpQuery = vi.hoisted(() => vi.fn().mockResolvedValue({ rows: [] }));
-const boltRun = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ records: [], bookmark: undefined }),
-);
+const boltRun = vi.hoisted(() => vi.fn());
 
-vi.mock("../src/hydra/http.js", () => ({ httpQuery }));
 vi.mock("../src/hydra/bolt.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/hydra/bolt.js")>();
   return {
@@ -20,10 +16,19 @@ vi.mock("../src/hydra/bolt.js", async (importOriginal) => {
   };
 });
 
-const { ingestExtract } = await import("../src/ingest.js");
+const {
+  DELETE_VERTICES,
+  READ_VERTEX_IDS,
+  UPSERT_VERTICES,
+  ingestExtract,
+} = await import("../src/ingest.js");
 
 describe("graph replacement ingestion", () => {
-  it("uses a new idempotency scope for every replacement run", async () => {
+  beforeEach(() => {
+    boltRun.mockReset();
+  });
+
+  it("deletes existing vertices through Bolt before upsert with a fresh idempotency scope", async () => {
     const graph = buildGraph({
       repository: "replacement",
       files: {
@@ -33,17 +38,74 @@ describe("graph replacement ingestion", () => {
       },
     });
     const config = loadConfig({ repository: graph.repository });
+    boltRun.mockImplementation(async (_session, query: string) => {
+      if (query === READ_VERTEX_IDS) {
+        return { records: [{ id: 101 }, { id: 202 }], bookmark: undefined };
+      }
+      return { records: [], bookmark: undefined };
+    });
 
+    const first = await ingestExtract(config, graph);
     await ingestExtract(config, graph);
-    await ingestExtract(config, graph);
 
-    expect(httpQuery).toHaveBeenCalledTimes(2);
-    expect(httpQuery.mock.calls[0]?.[2]).not.toBe(httpQuery.mock.calls[1]?.[2]);
+    const deleteCalls = boltRun.mock.calls.filter((call) => call[1] === DELETE_VERTICES);
+    expect(first.deletedVertices).toBe(2);
+    expect(first.deletedVertexBatches).toBe(1);
+    expect(deleteCalls).toHaveLength(2);
+    expect(deleteCalls[0]?.[2]).toEqual({ rows: [{ vertex: 101 }, { vertex: 202 }] });
+    expect(deleteCalls[1]?.[2]).toEqual({ rows: [{ vertex: 101 }, { vertex: 202 }] });
+    expect(deleteCalls[0]?.[4]).not.toBe(deleteCalls[1]?.[4]);
+    expect(
+      boltRun.mock.calls.findIndex((call) => call[1] === DELETE_VERTICES),
+    ).toBeLessThan(
+      boltRun.mock.calls.findIndex((call) => call[1] === UPSERT_VERTICES),
+    );
+  });
 
-    const mutationKeys = boltRun.mock.calls
-      .map((call) => call[4])
-      .filter((key): key is string => typeof key === "string");
-    expect(mutationKeys).toHaveLength(4);
-    expect(new Set(mutationKeys).size).toBe(4);
+  it("keeps deletion bounded and skips it for an empty graph", async () => {
+    const graph = buildGraph({
+      repository: "bounded-replacement",
+      files: { "src/core.ts": "export const core = 1;\n" },
+    });
+    const config = loadConfig({ repository: graph.repository });
+    boltRun.mockImplementation(async (_session, query: string) => {
+      if (query === READ_VERTEX_IDS) {
+        return {
+          records: Array.from({ length: 33 }, (_, id) => ({ id })),
+          bookmark: undefined,
+        };
+      }
+      return { records: [], bookmark: undefined };
+    });
+
+    const result = await ingestExtract(config, graph);
+    const deleteCalls = boltRun.mock.calls.filter((call) => call[1] === DELETE_VERTICES);
+    expect(result.deletedVertices).toBe(33);
+    expect(result.deletedVertexBatches).toBe(2);
+    expect(deleteCalls[0]?.[2].rows).toHaveLength(32);
+    expect(deleteCalls[1]?.[2].rows).toHaveLength(1);
+
+    boltRun.mockReset();
+    boltRun.mockResolvedValue({ records: [], bookmark: undefined });
+    const empty = await ingestExtract(config, graph);
+    expect(empty.deletedVertices).toBe(0);
+    expect(empty.deletedVertexBatches).toBe(0);
+    expect(boltRun.mock.calls.some((call) => call[1] === DELETE_VERTICES)).toBe(false);
+  });
+
+  it("stops before upsert when deletion fails", async () => {
+    const graph = buildGraph({
+      repository: "failed-replacement",
+      files: { "src/core.ts": "export const core = 1;\n" },
+    });
+    const config = loadConfig({ repository: graph.repository });
+    boltRun.mockImplementation(async (_session, query: string) => {
+      if (query === READ_VERTEX_IDS) return { records: [{ id: 303 }], bookmark: undefined };
+      if (query === DELETE_VERTICES) throw new Error("delete failed");
+      return { records: [], bookmark: undefined };
+    });
+
+    await expect(ingestExtract(config, graph)).rejects.toThrow("delete failed");
+    expect(boltRun.mock.calls.some((call) => call[1] === UPSERT_VERTICES)).toBe(false);
   });
 });

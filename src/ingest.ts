@@ -1,11 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { KetoConfig } from "./config.js";
 import { assertIdempotencyKey, boltRun, withBoltSession } from "./hydra/bolt.js";
-import { httpQuery } from "./hydra/http.js";
 import { IDENTITY_VERSION, type CodeEntity, type DependsOnEdge, type ExtractResult } from "./types.js";
 
 export const VERTEX_BATCH_SIZE = 32;
 export const RELATIONSHIP_BATCH_SIZE = 32;
+
+export const READ_VERTEX_IDS = `MATCH (n:CodeEntity)
+RETURN n.id AS id`;
+
+export const DELETE_VERTICES = `UNWIND $rows AS row
+MATCH (n {id: row.vertex})
+DETACH DELETE n`;
 
 export const UPSERT_VERTICES = `UNWIND $rows AS row
 MERGE (n {id: row.id})
@@ -26,8 +32,6 @@ CREATE (source)-[:DEPENDS_ON {
   kind: row.kind,
   specifier: row.specifier
 }]->(destination)`;
-
-export const CLEAR_GRAPH = `MATCH (n:CodeEntity) DETACH DELETE n`;
 
 export const READ_VERTICES = `MATCH (n:CodeEntity)
 RETURN n.id AS id,
@@ -110,6 +114,8 @@ export interface GraphSnapshot {
 }
 
 export interface IngestResult {
+  deletedVertexBatches: number;
+  deletedVertices: number;
   vertexBatches: number;
   relationshipBatches: number;
   vertices: number;
@@ -165,16 +171,34 @@ export async function ingestExtract(
   // as a no-op when the same snapshot is indexed again.
   const ingestRunId = randomUUID();
   const idempotencyKeys: string[] = [];
-  const clearKey = mutationIdempotencyKey("clr", 0, {
-    repository: extracted.repository,
-    operation: "replace-codeentity-graph",
-    ingestRunId,
-  });
-  idempotencyKeys.push(clearKey);
-  await httpQuery(config, CLEAR_GRAPH, `keto-${clearKey}`);
-  process.stdout.write("Cleared existing CodeEntity graph\n");
-
   return withBoltSession(config, async (session) => {
+    const existingVertices = await boltRun(
+      session,
+      READ_VERTEX_IDS,
+      {},
+      config.queryTimeoutMs,
+    );
+    const existingVertexIds = existingVertices.records
+      .map((row) => numberValue(row.id))
+      .filter((id) => Number.isSafeInteger(id) && id >= 0);
+    let deletedVertexBatches = 0;
+    for (const [index, ids] of batchRows(existingVertexIds, VERTEX_BATCH_SIZE).entries()) {
+      const rows = ids.map((vertex) => ({ vertex }));
+      const key = mutationIdempotencyKey("del", index, { ingestRunId, rows });
+      idempotencyKeys.push(key);
+      await boltRun(
+        session,
+        DELETE_VERTICES,
+        { rows },
+        config.queryTimeoutMs,
+        key,
+      );
+      deletedVertexBatches += 1;
+    }
+    process.stdout.write(
+      `Deleted existing CodeEntity vertices=${existingVertexIds.length} batches=${deletedVertexBatches}\n`,
+    );
+
     const vertices = vertexRows(extracted.entities, extracted.identity_version);
     const relationships = relationshipRows(extracted.relationships);
     let vertexBatches = 0;
@@ -201,6 +225,8 @@ export async function ingestExtract(
     process.stdout.write(`Created relationship batches=${relationshipBatches}\n`);
     const finalSnapshot = await readGraphSnapshot(session, config.queryTimeoutMs);
     return {
+      deletedVertexBatches,
+      deletedVertices: existingVertexIds.length,
       vertexBatches,
       relationshipBatches,
       vertices: extracted.entities.length,

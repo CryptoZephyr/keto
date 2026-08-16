@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  CLEAR_GRAPH,
   CREATE_RELATIONSHIPS,
+  DELETE_VERTICES,
   READ_RELATIONSHIPS,
+  READ_VERTEX_IDS,
   UPSERT_VERTICES,
   batchRows,
   compareSnapshotToExtract,
@@ -35,7 +36,10 @@ describe("ingest helpers", () => {
     expect(CREATE_RELATIONSHIPS).toContain("stable_key: row.stable_key");
     expect(CREATE_RELATIONSHIPS).toContain("kind: row.kind");
     expect(CREATE_RELATIONSHIPS).toContain("specifier: row.specifier");
-    expect(CLEAR_GRAPH).toContain("DETACH DELETE n");
+    expect(READ_VERTEX_IDS).toContain("RETURN n.id AS id");
+    expect(DELETE_VERTICES).toContain("UNWIND $rows AS row");
+    expect(DELETE_VERTICES).toContain("MATCH (n {id: row.vertex})");
+    expect(DELETE_VERTICES).toContain("DETACH DELETE n");
     expect(READ_RELATIONSHIPS).toContain("MATCH (source:CodeEntity)-[:DEPENDS_ON]->(destination:CodeEntity)");
     expect(READ_RELATIONSHIPS).not.toMatch(/\[[A-Za-z]+:DEPENDS_ON\]/);
     expect(batchRows(vertices, 1).length).toBe(vertices.length);
