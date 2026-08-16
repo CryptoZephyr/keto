@@ -24,6 +24,8 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
+      - run: npm run build
+      - run: npm test
       - name: Start pinned HydraDB
         run: bash scripts/start-hydradb.sh
       - name: HTTP and Bolt proof
@@ -36,22 +38,65 @@ jobs:
           rm -rf .hydradb/store .hydradb/cache
           mkdir -p .hydradb/store .hydradb/cache
           bash scripts/start-hydradb.sh
+      - name: Prepare warning-free fixture
+        run: |
+          cp -R fixtures/monorepo "$RUNNER_TEMP/keto-clean-fixture"
+          rm -f "$RUNNER_TEMP/keto-clean-fixture/src/dynamic.ts" \
+                "$RUNNER_TEMP/keto-clean-fixture/src/dynamic.test.ts" \
+                "$RUNNER_TEMP/keto-clean-fixture/src/opaque.ts" \
+                "$RUNNER_TEMP/keto-clean-fixture/src/opaque.test.ts"
       - name: Index fixture twice
         env:
           HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
         run: |
           set -o pipefail
-          node bin/keto.mjs index --repo fixtures/monorepo | tee index-1.log hydra-ingest.log
-          node bin/keto.mjs index --repo fixtures/monorepo | tee index-2.log
-          node bin/keto.mjs readback --repo fixtures/monorepo | tee hydra-idempotency.log
+          node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-clean-fixture" | tee index-1.log hydra-ingest.log
+          node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-clean-fixture" | tee index-2.log
+          node bin/keto.mjs readback --repo "$RUNNER_TEMP/keto-clean-fixture" | tee hydra-idempotency.log
+      - name: Replace stale graph state
+        env:
+          HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
+        run: |
+          cp -R "$RUNNER_TEMP/keto-clean-fixture" "$RUNNER_TEMP/keto-stale-fixture"
+          rm "$RUNNER_TEMP/keto-stale-fixture/src/util.test.ts"
+          node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-stale-fixture" | tee hydra-stale-replacement.log
+          node bin/keto.mjs readback --repo "$RUNNER_TEMP/keto-stale-fixture"
+          node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-clean-fixture"
+      - name: Relationship property proof
+        env:
+          HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
+        run: |
+          node --input-type=module <<'NODE' | tee hydra-relationship-properties.log
+          import neo4j from "neo4j-driver";
+          const driver = neo4j.driver(
+            "bolt://127.0.0.1:7687",
+            { scheme: "bearer", credentials: process.env.HYDRADB_AUTH_TOKEN },
+            { encrypted: false },
+          );
+          const session = driver.session({ database: "default" });
+          try {
+            const result = await session.run(
+              `MATCH (source:CodeEntity {path: 'src/util.test.ts'})-[:DEPENDS_ON {stable_key: 'keto-fixture:src/util.test.ts:test>tests>keto-fixture:src/util.ts:file|./util', kind: 'tests', specifier: './util'}]->(destination:CodeEntity {path: 'src/util.ts'}) RETURN destination.path AS path`,
+              {},
+              { timeout: 10_000 },
+            );
+            if (result.records[0]?.get("path") !== "src/util.ts") {
+              throw new Error("relationship properties were not persisted");
+            }
+            console.log("relationship-properties=ok");
+          } finally {
+            await session.close();
+            await driver.close();
+          }
+          NODE
       - name: Explain and test dry-run
         env:
           HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
         run: |
           set -o pipefail
-          node bin/keto.mjs explain --repo fixtures/monorepo --changed src/util.ts --json | tee explain-1.log
-          node bin/keto.mjs explain --repo fixtures/monorepo --changed src/leaf.ts --json | tee explain-2.log hydra-mspaths.log
-          node bin/keto.mjs test --repo fixtures/monorepo --changed src/util.ts --dry-run | tee test-selected.log
+          node bin/keto.mjs explain --repo "$RUNNER_TEMP/keto-clean-fixture" --changed src/util.ts --json | tee explain-1.log
+          node bin/keto.mjs explain --repo "$RUNNER_TEMP/keto-clean-fixture" --changed src/leaf.ts --json | tee explain-2.log hydra-mspaths.log
+          node bin/keto.mjs test --repo "$RUNNER_TEMP/keto-clean-fixture" --changed src/util.ts --dry-run | tee test-selected.log
           node bin/keto.mjs test --repo fixtures/monorepo --changed src/dynamic.ts --dry-run | tee test-fallback.log
       - name: MSpaths query text check
         run: |
@@ -82,9 +127,14 @@ jobs:
             index-1.log
             index-2.log
             hydra-idempotency.log
+            hydra-stale-replacement.log
+            hydra-relationship-properties.log
             hydra-mspaths.log
             explain-1.log
             explain-2.log
             test-selected.log
             test-fallback.log
           if-no-files-found: warn
+      - name: Stop HydraDB
+        if: always()
+        run: docker rm -f keto-hydradb >/dev/null 2>&1 || true

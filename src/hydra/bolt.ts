@@ -49,13 +49,18 @@ export async function boltRun(
   session: Session,
   query: string,
   parameters: Record<string, unknown>,
+  timeoutMs: number,
   idempotencyKey?: string,
 ): Promise<{ records: Array<Record<string, unknown>>; bookmark?: string }> {
+  assertQueryTimeout(timeoutMs);
   const metadata = idempotencyKey
     ? { "hydradb.idempotency_key": assertIdempotencyKey(idempotencyKey) }
     : undefined;
   try {
-    const result = await session.run(query, integerize(parameters), metadata ? { metadata } : {});
+    const result = await session.run(query, integerize(parameters), {
+      ...(metadata ? { metadata } : {}),
+      timeout: timeoutMs,
+    });
     const records = result.records.map((record) => record.toObject());
     const bookmark = lastBookmark(session);
     return { records, bookmark };
@@ -77,16 +82,27 @@ export async function boltWrite(
   session: Session,
   query: string,
   parameters: Record<string, unknown>,
+  timeoutMs: number,
   idempotencyKey: string,
 ): Promise<{ bookmark?: string }> {
+  assertQueryTimeout(timeoutMs);
   const metadata = {
     "hydradb.idempotency_key": assertIdempotencyKey(idempotencyKey),
   };
   await session.executeWrite(
     async (tx: ManagedTransaction) => tx.run(query, integerize(parameters)),
-    { metadata },
+    {
+      metadata,
+      timeout: timeoutMs,
+    },
   );
   return { bookmark: lastBookmark(session) };
+}
+
+function assertQueryTimeout(timeoutMs: number): void {
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("Bolt query execution timeout must be a positive integer in milliseconds");
+  }
 }
 
 export function recordsToPaths(records: Array<Record<string, unknown>>): GraphPath[] {

@@ -9,13 +9,27 @@ import {
   type ExpectedImpactCase,
 } from "./fixture-compare.js";
 import { changedFilesForRepo, normalizeChanged } from "./git-diff.js";
+import {
+  analyzeTraversalEnvelope,
+  compareReturnedTraversal,
+} from "./graph-safety.js";
 import { recordsToPaths, withBoltSession, boltRun } from "./hydra/bolt.js";
 import { entityKindForPath, normalizePath, stableKey } from "./identity.js";
+import {
+  compareSnapshotToExtract,
+  readGraphSnapshot,
+  type GraphSnapshot,
+} from "./ingest.js";
 import {
   affectedFilesFromPaths,
   extractTestsFromPaths,
 } from "./impact.js";
-import { encodeMSPathsQuery } from "./query-encode.js";
+import {
+  DEFAULT_MAX_LEN,
+  DEFAULT_PATH_COUNT,
+  DEFAULT_RESULT_LIMIT,
+  encodeMSPathsQuery,
+} from "./query-encode.js";
 import type {
   ExtractResult,
   GraphPath,
@@ -32,6 +46,13 @@ export interface ExplainRequest {
   repository?: string;
   json?: boolean;
   config?: KetoConfig;
+}
+
+interface HydraEvidence {
+  paths: GraphPath[];
+  snapshotBefore: GraphSnapshot;
+  snapshotAfter: GraphSnapshot;
+  bookmark?: string;
 }
 
 export interface ExplainResult {
@@ -91,26 +112,43 @@ export async function explainChange(request: ExplainRequest): Promise<ExplainRes
   const sourceValues = changed
     .filter((path) => extract.entities.some((entity) => entity.path === normalizePath(path)))
     .map((path) => stableKey(repository, path, entityKindForPath(path)));
+  const traversalEnvelope = analyzeTraversalEnvelope(extract, changed, {
+    maxLen: DEFAULT_MAX_LEN,
+    pathCount: DEFAULT_PATH_COUNT,
+    resultLimit: DEFAULT_RESULT_LIMIT,
+  });
 
   let paths: GraphPath[] = [];
   let query: string | undefined;
   let bookmark: string | undefined;
   let hydraError: HydraError | undefined;
-  let queryLimitExceeded = false;
+  const queryLimitExceeded = traversalEnvelope.limitExceeded;
+  let incompleteCoverage: string | undefined;
 
   const encoded = encodeMSPathsQuery({ sourceValues });
   if (!encoded.ok) {
     hydraError = { kind: "rejected", message: encoded.error };
   } else if (sourceValues.length === 0) {
     query = undefined;
-  } else {
+  } else if (!queryLimitExceeded) {
     query = encoded.query;
     try {
-      const result = await withBoltSession(config, (session) =>
-        boltRun(session, encoded.query, {}),
-      );
-      paths = recordsToPaths(result.records);
-      bookmark = result.bookmark;
+      const evidence = await readHydraEvidence({ config, query: encoded.query });
+      const before = compareSnapshotToExtract(evidence.snapshotBefore, extract);
+      const after = compareSnapshotToExtract(evidence.snapshotAfter, extract);
+      if (!before.match || !after.match) {
+        incompleteCoverage = !before.match ? before.detail : after.detail;
+      } else {
+        paths = evidence.paths;
+        bookmark = evidence.bookmark;
+        const pathComparison = compareReturnedTraversal(
+          traversalEnvelope.expectedPaths,
+          paths,
+        );
+        if (!pathComparison.match) {
+          incompleteCoverage = pathComparison.detail;
+        }
+      }
     } catch (error) {
       hydraError = error as HydraError;
     }
@@ -131,6 +169,7 @@ export async function explainChange(request: ExplainRequest): Promise<ExplainRes
     hydraError,
     fixtureComparison,
     queryLimitExceeded,
+    incompleteCoverage,
   });
 
   if (decision.mode === "full_suite") {
@@ -161,6 +200,34 @@ export async function explainChange(request: ExplainRequest): Promise<ExplainRes
     extract,
     fixtureComparison,
   };
+}
+
+async function readHydraEvidence(input: {
+  config: KetoConfig;
+  query: string;
+}): Promise<HydraEvidence> {
+  return withBoltSession(input.config, async (session) => {
+    const snapshotBefore = await readGraphSnapshot(
+      session,
+      input.config.queryTimeoutMs,
+    );
+    const result = await boltRun(
+      session,
+      input.query,
+      {},
+      input.config.queryTimeoutMs,
+    );
+    const snapshotAfter = await readGraphSnapshot(
+      session,
+      input.config.queryTimeoutMs,
+    );
+    return {
+      paths: recordsToPaths(result.records),
+      snapshotBefore,
+      snapshotAfter,
+      bookmark: result.bookmark,
+    };
+  });
 }
 
 export function formatExplainHuman(result: ExplainResult): string {

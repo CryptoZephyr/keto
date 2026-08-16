@@ -16,6 +16,43 @@ const catalog = JSON.parse(
 ) as { cases: FallbackCase[] };
 
 describe("fallback decision table", () => {
+  it("fails closed when an importer warning can hide a dependency on another changed file", () => {
+    const decision = decideFallback({
+      changedPaths: ["src/target.ts"],
+      indexedPaths: ["src/importer.ts", "src/target.ts", "src/target.test.ts"],
+      coverageWarnings: [
+        {
+          type: "dynamic_import",
+          path: "src/importer.ts",
+          detail: "dynamic import() with a non-literal specifier",
+        },
+      ],
+      selectedTests: ["src/target.test.ts"],
+    });
+
+    expect(decision.mode).toBe("full_suite");
+    expect(decision.tests).toEqual([]);
+    expect(decision.reasons).toContainEqual(
+      expect.objectContaining({ code: "dynamic_import" }),
+    );
+  });
+
+  it("fails closed when the current extract cannot be proven against the HydraDB snapshot", () => {
+    const decision = decideFallback({
+      changedPaths: ["src/target.ts"],
+      indexedPaths: ["src/target.ts", "src/target.test.ts"],
+      coverageWarnings: [],
+      selectedTests: ["src/target.test.ts"],
+      incompleteCoverage:
+        "HydraDB graph does not match the current content hashes and topology",
+    });
+
+    expect(decision.mode).toBe("full_suite");
+    expect(decision.reasons).toContainEqual(
+      expect.objectContaining({ code: "incomplete_coverage" }),
+    );
+  });
+
   it("covers every checked-in fail-closed case", () => {
     const ids = catalog.cases.map((item) => item.id);
     expect(ids).toEqual(

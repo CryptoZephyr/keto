@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  MERGE_RELATIONSHIPS,
+  CLEAR_GRAPH,
+  CREATE_RELATIONSHIPS,
   READ_RELATIONSHIPS,
   UPSERT_VERTICES,
   batchRows,
@@ -25,7 +26,16 @@ describe("ingest helpers", () => {
     const relationships = relationshipRows(graph.relationships);
     expect(UPSERT_VERTICES).toContain("UNWIND $rows AS row");
     expect(UPSERT_VERTICES).toContain("MERGE (n {id: row.id})");
-    expect(MERGE_RELATIONSHIPS).toContain("MERGE (source)-[:DEPENDS_ON {id: row.relationship_id}]->(destination)");
+    expect(UPSERT_VERTICES).toContain(
+      "n.identity_version = row.identity_version",
+    );
+    expect(CREATE_RELATIONSHIPS).toContain("CREATE (source)-[:DEPENDS_ON {");
+    expect(CREATE_RELATIONSHIPS).not.toContain("MERGE (source)-[:DEPENDS_ON");
+    expect(CREATE_RELATIONSHIPS).toContain("id: row.relationship_id");
+    expect(CREATE_RELATIONSHIPS).toContain("stable_key: row.stable_key");
+    expect(CREATE_RELATIONSHIPS).toContain("kind: row.kind");
+    expect(CREATE_RELATIONSHIPS).toContain("specifier: row.specifier");
+    expect(CLEAR_GRAPH).toContain("DETACH DELETE n");
     expect(READ_RELATIONSHIPS).toContain("MATCH (source:CodeEntity)-[:DEPENDS_ON]->(destination:CodeEntity)");
     expect(READ_RELATIONSHIPS).not.toMatch(/\[[A-Za-z]+:DEPENDS_ON\]/);
     expect(batchRows(vertices, 1).length).toBe(vertices.length);
@@ -34,12 +44,17 @@ describe("ingest helpers", () => {
     expect(key).not.toBe(mutationIdempotencyKey("vtx", 1, vertices));
     expect(() => assertIdempotencyKey(key)).not.toThrow();
     expect(relationships[0]?.relationship_id).toBe(graph.relationships[0]?.id);
+    expect(vertices[0]?.identity_version).toBe(graph.identity_version);
     const snapshot = {
       vertices: graph.entities.map((entity) => ({
         id: entity.id,
         stable_key: entity.stable_key,
+        repository: entity.repository,
         path: entity.path,
         kind: entity.kind,
+        language: entity.language,
+        content_hash: entity.content_hash,
+        identity_version: graph.identity_version,
       })),
       relationships: graph.relationships.map((rel) => ({
         id: rel.id,
@@ -50,5 +65,11 @@ describe("ingest helpers", () => {
       })),
     };
     expect(compareSnapshotToExtract(snapshot, graph).match).toBe(true);
+
+    const staleSnapshot = structuredClone(snapshot);
+    staleSnapshot.vertices[0]!.content_hash = "stale-content-hash";
+    expect(compareSnapshotToExtract(staleSnapshot, graph)).toEqual(
+      expect.objectContaining({ match: false }),
+    );
   });
 });

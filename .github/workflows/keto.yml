@@ -20,13 +20,15 @@ permissions:
 jobs:
   impact:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       HYDRADB_BOLT_URL: bolt://127.0.0.1:7687
       HYDRADB_HTTP_URL: http://127.0.0.1:8443
-      HYDRADB_AUTH_TOKEN: ${{ secrets.HYDRADB_AUTH_TOKEN }}
+      HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
       HYDRADB_NAMESPACE: keto
       HYDRADB_GRAPH_ID: keto
       HYDRADB_CELL_ID: cell-0
+      KETO_REPOSITORY: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,51 +42,70 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Unit tests
-        run: npm test
+      - name: Build
+        run: npm run build
 
-      - name: Explain impact
+      - name: Start pinned HydraDB
+        continue-on-error: true
+        run: bash scripts/start-hydradb.sh
+
+      - name: Index checked-out repository
+        id: index
+        run: |
+          set +e
+          node bin/keto.mjs index --repo . > index.log 2>&1
+          status=$?
+          set -e
+          cat index.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Explain checked-out repository impact
         id: explain
         env:
           BASE: ${{ github.event.inputs.base || github.event.pull_request.base.sha || 'HEAD^' }}
           CHANGED: ${{ github.event.inputs.changed }}
+          INDEX_STATUS: ${{ steps.index.outputs.status }}
         run: |
           set +e
           if [ -n "$CHANGED" ]; then
-            node bin/keto.mjs explain --repo fixtures/monorepo --changed "$CHANGED" --json > explain.json
+            node bin/keto.mjs explain --repo . --changed "$CHANGED" --json > explain.json
           else
-            node bin/keto.mjs explain --repo fixtures/monorepo --base "$BASE" --json > explain.json
+            node bin/keto.mjs explain --repo . --base "$BASE" --json > explain.json
           fi
           status=$?
           set -e
-          if [ ! -s explain.json ]; then
-            printf '%s\n' '{"mode":"full_suite","reasons":[{"code":"hydradb_unavailable","detail":"explain produced no JSON"}],"selectedTests":[],"affectedTests":[],"affectedFiles":[],"changed":[]}' > explain.json
+          if [ "$status" -ne 0 ] || [ "$INDEX_STATUS" != "0" ]; then
+            rm -f explain.json
           fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
           python3 - <<'PY'
-          import json, os
-          data = json.load(open("explain.json"))
-          mode = data.get("mode", "full_suite")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"mode={mode}\n")
-          PY
-
-      - name: Agent JSON
-        run: |
-          cp explain.json keto-agent.json
-          python3 - <<'PY'
           import json
-          data = json.load(open("explain.json"))
-          # Fail closed: never treat a missing/invalid report as selected.
-          if data.get("mode") != "selected":
+          from pathlib import Path
+
+          fallback = {
+              "mode": "full_suite",
+              "reasons": [{"code": "hydradb_unavailable", "detail": "no valid Keto impact report"}],
+              "selectedTests": [],
+              "affectedTests": [],
+              "affectedFiles": [],
+              "changed": [],
+          }
+          try:
+              data = json.loads(Path("explain.json").read_text(encoding="utf-8"))
+          except Exception:
+              data = fallback
+          if not isinstance(data, dict):
+              data = fallback
+          if data.get("mode") != "selected" or not isinstance(data.get("selectedTests"), list) or not data.get("selectedTests"):
               data["mode"] = "full_suite"
               data["selectedTests"] = []
-          json.dump(data, open("keto-agent.json", "w"), indent=2)
+          Path("keto-agent.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
           print("wrote keto-agent.json mode=" + data.get("mode", "full_suite"))
           PY
 
       - name: PR summary
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
@@ -125,13 +146,9 @@ jobs:
               body,
             });
 
-      - name: Run tests (fail closed)
-        env:
-          MODE: ${{ steps.explain.outputs.mode }}
-        run: |
-          if [ "$MODE" = "selected" ]; then
-            node bin/keto.mjs test --repo fixtures/monorepo --changed src/util.ts
-          else
-            echo "Failing closed into the fixture full suite"
-            npx vitest run --root fixtures/monorepo
-          fi
+      - name: Run tests from report (fail closed)
+        run: node scripts/run-keto-report.mjs keto-agent.json .
+
+      - name: Stop HydraDB
+        if: always()
+        run: docker rm -f keto-hydradb >/dev/null 2>&1 || true

@@ -15,7 +15,8 @@ incomplete, stale, or the query is unsafe.
 
 HydraDB performs essential work. Keto uses it to:
 
-1. Persist `CodeEntity` vertices and `DEPENDS_ON` relationships.
+1. Persist `CodeEntity` vertices and `DEPENDS_ON` relationships, including
+   stable relationship identity, kind, and import specifier properties.
 2. Accept batched Bolt `UNWIND` mutations with caller-supplied
    `hydradb.idempotency_key` transaction metadata.
 3. Look up changed entities by `stable_key`.
@@ -23,6 +24,18 @@ HydraDB performs essential work. Keto uses it to:
    (`algo.MSpaths`, incoming `DEPENDS_ON` only).
 5. Return the dependency-path evidence shown by `keto explain` and used by
    `keto test`.
+6. Re-read vertex hashes, identity version, counts, and relationship topology
+   before and after traversal so Keto can reject a stale or changing graph.
+
+`keto index` replaces the graph's `CodeEntity` subgraph before ingesting the
+current extract. This removes stale vertices and edges, but means one Keto
+repository owns a HydraDB graph/namespace in the MVP. Keto writes relationship
+properties inline because HydraDB 0.1.1 does not reliably bind a relationship
+variable for a later `SET` or `RETURN`. Read-back therefore validates the exact
+endpoint multiset; vertex content hashes and identity version provide the
+freshness proof. The checked-in live workflow contains the relationship-
+property proof, but the audit-corrected workflow must pass before that new
+write path is described as live-verified.
 
 Pinned image: `ghcr.io/hydra-db/hydradb:0.1.1`
 API review commit: `6a2fbb192f37f51a93690a2ae2d2f5e27e6e4219`
@@ -45,16 +58,23 @@ claiming HydraDB-backed results.
 
 ## Safety policy
 
-Selected-test mode is allowed only when every changed source file is in the
-graph, coverage warnings do not touch the change, the HydraDB query succeeds
-inside depth/path/result/timeout/selected-test limits, and a known-answer
-fixture (when present) matches. Otherwise Keto runs the full suite for:
+Selected-test mode is allowed only when every changed source file is indexed,
+the entire extract has no parse/dynamic/unresolved/missing-file warning, and
+the live HydraDB graph exactly matches the current vertex hashes, identity
+version, counts, and relationship topology both before and after traversal.
+Keto also enumerates the extractor topology only as a verifier: selected mode
+requires the complete returned HydraDB path multiset to match and to fit below
+`maxLen`, `pathCount`, and `resultLimit`. It never uses that local enumeration
+as substitute selected-test evidence. Otherwise Keto runs the full suite for:
 
 - missing or unindexed changed files
 - parse failures
 - unresolved or dynamic imports
 - root config, lockfiles, test config, or shared tooling changes
 - HydraDB unavailable / timeout / reject / budget
+- stale graph content, identity version, counts, or topology
+- traversal depth, per-source path, overall result, or execution timeout risk
+- missing or unexpected HydraDB path evidence
 - fixture mismatch
 - a suspicious empty result on a non-trivial source change
 
@@ -80,9 +100,9 @@ npm run keto:explain -- --repo fixtures/monorepo --changed src/util.ts
 npm run keto:test -- --repo fixtures/monorepo --changed src/util.ts --dry-run
 ```
 
-The HTTP proof must return vertex id `2`. Reset the disposable setup graph
-before indexing the fixture (`docker rm -f keto-hydradb`, wipe
-`.hydradb/store` and `.hydradb/cache`, rerun `scripts/start-hydradb.sh`).
+The HTTP proof must return vertex id `2`. `keto index` clears the existing
+`CodeEntity` graph before writing the requested repository, so do not share one
+MVP graph/namespace between repositories.
 
 Full container flags live in `scripts/start-hydradb.sh`.
 
@@ -108,6 +128,11 @@ unaffected test, a cycle, a dynamic import, a missed non-literal require, an
 alias import, and a root-config change. Expected extract identities live in
 `fixtures/expected/extract.json`. Expected impact cases live in
 `fixtures/monorepo/keto.fixture.json`.
+
+Because coverage warnings are global and conservative, this intentionally
+unsafe fixture falls back for every changed file. The pinned live verification
+workflow creates a warning-free copy to prove selected traversal, then uses
+the original fixture to prove warning fallback.
 
 ## Benchmarks and claims
 

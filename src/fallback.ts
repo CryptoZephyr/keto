@@ -16,6 +16,7 @@ export interface FallbackInput {
   selectedTests: string[];
   hydraError?: HydraError;
   fixtureComparison?: FixtureComparison;
+  incompleteCoverage?: string;
   queryLimitExceeded?: boolean;
   maxSelectedTests?: number;
   allowlistedPaths?: string[];
@@ -55,6 +56,13 @@ export function decideFallback(input: FallbackInput): SafetyDecision {
     });
   }
 
+  if (input.incompleteCoverage) {
+    reasons.push({
+      code: "incomplete_coverage",
+      detail: input.incompleteCoverage,
+    });
+  }
+
   for (const path of changed) {
     const classification = classifyChangedPath(path);
     if (classification === "lockfile") {
@@ -72,9 +80,6 @@ export function decideFallback(input: FallbackInput): SafetyDecision {
 
   for (const warning of input.coverageWarnings) {
     const warningPath = normalizePath(warning.path);
-    if (!changed.includes(warningPath)) {
-      continue;
-    }
     if (warning.type === "dynamic_import") {
       reasons.push({
         code: "dynamic_import",
