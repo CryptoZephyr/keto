@@ -2,14 +2,6 @@ name: HydraDB verify
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/hydra-verify.yml"
-      - "scripts/**"
-      - "src/**"
-      - "fixtures/**"
-      - "package.json"
-      - "package-lock.json"
 
 permissions:
   contents: read
