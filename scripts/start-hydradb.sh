@@ -39,8 +39,15 @@ docker run -d --name keto-hydradb \
 echo "waiting for /readyz"
 for _ in $(seq 1 60); do
   if curl -fsS http://127.0.0.1:9090/readyz >/dev/null; then
-    echo "hydradb ready"
-    exit 0
+    echo "waiting for Bolt query readiness"
+    for _ in $(seq 1 60); do
+      if node scripts/hydra-proof.mjs bolt-ready >/dev/null 2>&1; then
+        echo "hydradb ready"
+        exit 0
+      fi
+      sleep 1
+    done
+    break
   fi
   sleep 1
 done

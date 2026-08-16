@@ -80,11 +80,32 @@ async function boltConnect() {
   }
 }
 
+async function boltReady() {
+  const neo4j = await import("neo4j-driver");
+  const driver = neo4j.default.driver(
+    boltUrl,
+    { scheme: "bearer", credentials: token },
+    { encrypted: false },
+  );
+  try {
+    const session = driver.session({ database: boltDatabase });
+    try {
+      await session.run("MATCH (n:CodeEntity) RETURN n.id AS id");
+    } finally {
+      await session.close();
+    }
+    process.stdout.write("bolt-ready=ok\n");
+  } finally {
+    await driver.close();
+  }
+}
+
 const step = process.argv[2] ?? "all";
 try {
   if (step === "ready" || step === "all") await ready();
   if (step === "http" || step === "all") await httpRoundTrip();
   if (step === "bolt" || step === "all") await boltConnect();
+  if (step === "bolt-ready") await boltReady();
 } catch (error) {
   process.stderr.write(`${redact(error instanceof Error ? error.message : error)}\n`);
   process.exit(1);
