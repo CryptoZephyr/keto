@@ -22,7 +22,7 @@ export function createBoltDriver(config: KetoConfig): Driver {
     encrypted: false,
     connectionTimeout: config.queryTimeoutMs,
     maxConnectionLifetime: 60_000,
-    disableLosslessIntegers: true,
+    disableLosslessIntegers: false,
   });
 }
 

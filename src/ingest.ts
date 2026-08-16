@@ -142,9 +142,11 @@ export async function ingestExtract(
       await boltRun(session, UPSERT_VERTICES, { rows }, key);
       vertexBatches += 1;
     }
+    process.stdout.write(`Upserted vertex batches=${vertexBatches}\n`);
     const clearKey = mutationIdempotencyKey("clr", 0, { op: "clear-depends-on" });
     idempotencyKeys.push(clearKey);
     await boltRun(session, DELETE_ALL_RELATIONSHIPS, {}, clearKey);
+    process.stdout.write("Cleared existing DEPENDS_ON relationships\n");
     let relationshipBatches = 0;
     for (const [index, rows] of batchRows(relationships, RELATIONSHIP_BATCH_SIZE).entries()) {
       const key = mutationIdempotencyKey("rel", index, rows);
@@ -152,6 +154,7 @@ export async function ingestExtract(
       await boltRun(session, MERGE_RELATIONSHIPS, { rows }, key);
       relationshipBatches += 1;
     }
+    process.stdout.write(`Created relationship batches=${relationshipBatches}\n`);
     const finalSnapshot = await readGraphSnapshot(session);
     return {
       vertexBatches,
