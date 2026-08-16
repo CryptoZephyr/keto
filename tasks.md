@@ -19,10 +19,10 @@
 
 ## Phase 1 — Prove HydraDB Before Product Code
 
-- [ ] Start pinned `ghcr.io/hydra-db/hydradb:0.1.1` inside Codespaces using `setup.md` (not on the 4 GB laptop).
-- [ ] Confirm `/readyz`.
-- [ ] Complete an HTTP write/read round trip.
-- [ ] Verify Bolt connectivity with `neo4j-driver`.
+- [x] Start pinned `ghcr.io/hydra-db/hydradb:0.1.1` (GitHub Actions ubuntu-latest; not the 4 GB laptop).
+- [x] Confirm `/readyz`.
+- [x] Complete an HTTP write/read round trip.
+- [x] Verify Bolt connectivity with `neo4j-driver`.
 - [x] Record the exact HydraDB image tag and upstream commit/release in the README.
 - [x] Keep every HydraDB port private/loopback-only.
 
@@ -55,8 +55,8 @@
 - [x] Implement bounded Bolt `UNWIND` relationship merge batches.
 - [x] Send deterministic `hydradb.idempotency_key` Bolt transaction metadata and deterministic relationship IDs for safe retry behavior.
 - [x] Delete or update stale relationships when a file changes.
-- [ ] Confirm re-indexing the same fixture does not duplicate vertices or edges (requires live HydraDB in Codespaces).
-- [ ] Read the graph back and compare counts/identities with the extractor output (requires live HydraDB in Codespaces).
+- [x] Confirm re-indexing the same fixture does not duplicate vertices or edges (requires live HydraDB in Codespaces).
+- [x] Read the graph back and compare counts/identities with the extractor output (requires live HydraDB in Codespaces).
 
 **Gate:** Re-index twice and get the same graph.
 
