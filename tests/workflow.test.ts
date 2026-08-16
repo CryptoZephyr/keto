@@ -6,6 +6,10 @@ const workflow = readFileSync(
   new URL("../.github/workflows/keto.yml", import.meta.url),
   "utf8",
 );
+const hydraWorkflow = readFileSync(
+  new URL("../.github/workflows/hydra-verify.yml", import.meta.url),
+  "utf8",
+);
 
 describe("GitHub Action", () => {
   it("indexes and analyzes the checkout, builds it, and executes the emitted report", () => {
@@ -46,5 +50,21 @@ describe("GitHub Action", () => {
     expect(testPlanFromReport({ mode: "full_suite", selectedTests: [] })).toEqual(
       expect.objectContaining({ mode: "full_suite", command: ["npm", "test"] }),
     );
+  });
+
+  it("fails closed when the HydraDB relationship-property proof fails", () => {
+    const start = hydraWorkflow.indexOf("- name: Relationship property proof");
+    const end = hydraWorkflow.indexOf("\n      - name:", start + 1);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const proof = hydraWorkflow.slice(start, end === -1 ? undefined : end);
+    const pipe = proof.indexOf("| tee hydra-relationship-properties.log");
+
+    expect(proof).toContain("set -o pipefail");
+    expect(proof.indexOf("set -o pipefail")).toBeLessThan(pipe);
+    expect(proof).toContain("WHERE relationship.stable_key = $stableKey");
+    expect(proof).toContain("AND relationship.kind = $kind");
+    expect(proof).toContain("AND relationship.specifier = $specifier");
+    expect(proof).toContain('console.log("relationship-properties=ok")');
+    expect(proof).toContain('throw new Error("relationship properties were not persisted")');
   });
 });

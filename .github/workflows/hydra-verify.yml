@@ -66,6 +66,7 @@ jobs:
         env:
           HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
         run: |
+          set -o pipefail
           node --input-type=module <<'NODE' | tee hydra-relationship-properties.log
           import neo4j from "neo4j-driver";
           const driver = neo4j.driver(
@@ -76,11 +77,21 @@ jobs:
           const session = driver.session({ database: "default" });
           try {
             const result = await session.run(
-              `MATCH (source:CodeEntity {path: 'src/util.test.ts'})-[:DEPENDS_ON {stable_key: 'keto-fixture:src/util.test.ts:test>tests>keto-fixture:src/util.ts:file|./util', kind: 'tests', specifier: './util'}]->(destination:CodeEntity {path: 'src/util.ts'}) RETURN destination.path AS path`,
-              {},
+              `MATCH (source:CodeEntity {path: $sourcePath})-[relationship:DEPENDS_ON]->(destination:CodeEntity {path: $destinationPath})
+               WHERE relationship.stable_key = $stableKey
+                 AND relationship.kind = $kind
+                 AND relationship.specifier = $specifier
+               RETURN destination.path AS path`,
+              {
+                sourcePath: "src/util.test.ts",
+                destinationPath: "src/util.ts",
+                stableKey: "keto-fixture:src/util.test.ts:test>tests>keto-fixture:src/util.ts:file|./util",
+                kind: "tests",
+                specifier: "./util",
+              },
               { timeout: 10_000 },
             );
-            if (result.records[0]?.get("path") !== "src/util.ts") {
+            if (result.records.length !== 1 || result.records[0]?.get("path") !== "src/util.ts") {
               throw new Error("relationship properties were not persisted");
             }
             console.log("relationship-properties=ok");

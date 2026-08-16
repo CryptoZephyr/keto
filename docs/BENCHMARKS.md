@@ -25,20 +25,20 @@ Each measured row must name:
 
 ## Recorded runs
 
-No HydraDB-backed timing run has been committed from the local 4 GB Windows
-editor host. That host is not permitted to run Docker, WSL, Rust, or HydraDB.
+No complete HydraDB-backed timing run has been recorded yet. Correctness runs
+and their wall-clock action durations are not benchmark measurements.
 
-When a Codespace or GitHub Actions runner completes `scripts/start-hydradb.sh`
-and `npm run keto:index -- --repo fixtures/monorepo`, append a row here. Until
-then this project makes **zero** performance claims.
+After a Codespace or GitHub Actions runner completes the full measurement
+method below, append a row here. Until then this project makes **zero**
+performance claims.
 
-### Fixture (pending live HydraDB)
+### Fixture (pending timing run)
 
 | Field | Value |
 |---|---|
 | dataset | `fixtures/monorepo` (this repository) |
 | commit | *fill after measurement* |
-| vertices / relationships | see `fixtures/expected/extract.json` |
+| vertices / relationships | 23 / 15 (2 extraction warnings) |
 | machine | *not measured* |
 | HydraDB | `ghcr.io/hydra-db/hydradb:0.1.1` |
 | index state | canonical reads; indexer not required |
@@ -50,7 +50,7 @@ then this project makes **zero** performance claims.
 | full-suite | *not measured* |
 | selected-suite | *not measured* |
 
-### Public repository (pending)
+### Public repository (pending timing run)
 
 Pick a small public JS/TS repository, record its commit SHA, index it in the
 same Codespace as the fixture, and add a second table. Do not reuse fixture
