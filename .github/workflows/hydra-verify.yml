@@ -57,11 +57,22 @@ jobs:
         env:
           HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
         run: |
+          set -o pipefail
           cp -R "$RUNNER_TEMP/keto-clean-fixture" "$RUNNER_TEMP/keto-stale-fixture"
           rm "$RUNNER_TEMP/keto-stale-fixture/src/util.test.ts"
           node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-stale-fixture" | tee hydra-stale-replacement.log
           node bin/keto.mjs readback --repo "$RUNNER_TEMP/keto-stale-fixture"
-          node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-clean-fixture"
+          for attempt in 1 2 3 4 5; do
+            if node bin/keto.mjs index --repo "$RUNNER_TEMP/keto-clean-fixture" | tee -a hydra-clean-replacement.log; then
+              break
+            fi
+            if [[ "$attempt" == 5 ]]; then
+              echo "clean reindex failed after $attempt attempts" >&2
+              exit 1
+            fi
+            echo "clean reindex attempt $attempt failed; waiting for HydraDB snapshot convergence" >&2
+            sleep 2
+          done
       - name: Relationship property proof
         env:
           HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
@@ -139,6 +150,7 @@ jobs:
             index-2.log
             hydra-idempotency.log
             hydra-stale-replacement.log
+            hydra-clean-replacement.log
             hydra-relationship-properties.log
             hydra-mspaths.log
             explain-1.log

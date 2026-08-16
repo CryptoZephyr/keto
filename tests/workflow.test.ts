@@ -67,4 +67,16 @@ describe("GitHub Action", () => {
     expect(proof).toContain('console.log("relationship-properties=ok")');
     expect(proof).toContain('throw new Error("relationship properties were not persisted")');
   });
+
+  it("retries the HydraDB clean reindex without swallowing a failed attempt", () => {
+    const start = hydraWorkflow.indexOf("- name: Replace stale graph state");
+    const end = hydraWorkflow.indexOf("\n      - name:", start + 1);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const replacement = hydraWorkflow.slice(start, end === -1 ? undefined : end);
+
+    expect(replacement).toContain("set -o pipefail");
+    expect(replacement).toContain("for attempt in 1 2 3 4 5; do");
+    expect(replacement).toContain("clean reindex failed after $attempt attempts");
+    expect(replacement).toContain("sleep 2");
+  });
 });
