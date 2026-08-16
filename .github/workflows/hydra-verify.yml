@@ -41,6 +41,7 @@ jobs:
         env:
           HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
         run: |
+          set -o pipefail
           node bin/keto.mjs index --repo fixtures/monorepo | tee index-1.log
           node bin/keto.mjs index --repo fixtures/monorepo | tee index-2.log
           node bin/keto.mjs readback --repo fixtures/monorepo | tee hydra-idempotency.log

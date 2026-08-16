@@ -24,7 +24,7 @@ describe("ingest helpers", () => {
     const relationships = relationshipRows(graph.relationships);
     expect(UPSERT_VERTICES).toContain("UNWIND $rows AS row");
     expect(UPSERT_VERTICES).toContain("MERGE (n {id: row.id})");
-    expect(MERGE_RELATIONSHIPS).toContain("MERGE (source)-[r:DEPENDS_ON {id: row.relationship_id}]->(destination)");
+    expect(MERGE_RELATIONSHIPS).toContain("CREATE (source)-[:DEPENDS_ON {id: row.relationship_id, stable_key: row.stable_key, kind: row.kind, specifier: row.specifier}]->(destination)");
     expect(batchRows(vertices, 1).length).toBe(vertices.length);
     const key = mutationIdempotencyKey("vtx", 0, vertices);
     expect(key).toBe(mutationIdempotencyKey("vtx", 0, vertices));

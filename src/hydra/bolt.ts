@@ -22,7 +22,7 @@ export function createBoltDriver(config: KetoConfig): Driver {
     encrypted: false,
     connectionTimeout: config.queryTimeoutMs,
     maxConnectionLifetime: 60_000,
-    disableLosslessIntegers: false,
+    disableLosslessIntegers: true,
   });
 }
 
@@ -163,8 +163,12 @@ function integerize(value: unknown): unknown {
 }
 
 function lastBookmark(session: Session): string | undefined {
-  const bookmarks = session.lastBookmarks();
-  return bookmarks[bookmarks.length - 1];
+  try {
+    const bookmarks = session.lastBookmarks();
+    return bookmarks[bookmarks.length - 1];
+  } catch {
+    return undefined;
+  }
 }
 
 function classifyBoltError(error: unknown): HydraError & Error {

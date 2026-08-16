@@ -213,9 +213,9 @@ function formatError(error: unknown): string {
 
 main()
   .then((code) => {
-    process.exitCode = code;
+    process.exit(code);
   })
   .catch((error) => {
     process.stderr.write(`${formatError(error)}\n`);
-    process.exitCode = 1;
+    process.exit(1);
   });

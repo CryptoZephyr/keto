@@ -17,22 +17,21 @@ SET n:CodeEntity,
     n.content_hash = row.content_hash`;
 
 export const MERGE_RELATIONSHIPS = `UNWIND $rows AS row
-MATCH (source:CodeEntity {id: row.source_id}),
-      (destination:CodeEntity {id: row.destination_id})
-MERGE (source)-[r:DEPENDS_ON {id: row.relationship_id}]->(destination)
-SET r.stable_key = row.stable_key,
-    r.kind = row.kind,
-    r.specifier = row.specifier`;
+MATCH (source:CodeEntity {id: row.source_id}), (destination:CodeEntity {id: row.destination_id})
+CREATE (source)-[:DEPENDS_ON {id: row.relationship_id, stable_key: row.stable_key, kind: row.kind, specifier: row.specifier}]->(destination)`;
+
+export const DELETE_ALL_RELATIONSHIPS = `MATCH (source:CodeEntity)-[dep:DEPENDS_ON]->(destination:CodeEntity)
+DELETE dep`;
 
 export const DELETE_STALE_RELATIONSHIPS = `UNWIND $rows AS row
-MATCH ()-[r:DEPENDS_ON {id: row.relationship_id}]->()
-DELETE r`;
+MATCH ()-[dep:DEPENDS_ON {id: row.relationship_id}]->()
+DELETE dep`;
 
 export const READ_VERTICES = `MATCH (n:CodeEntity)
 RETURN n.id AS id, n.stable_key AS stable_key, n.path AS path, n.kind AS kind`;
 
-export const READ_RELATIONSHIPS = `MATCH (source:CodeEntity)-[r:DEPENDS_ON]->(destination:CodeEntity)
-RETURN r.id AS id, r.stable_key AS stable_key, r.kind AS kind, source.id AS source_id, destination.id AS destination_id`;
+export const READ_RELATIONSHIPS = `MATCH (source:CodeEntity)-[dep:DEPENDS_ON]->(destination:CodeEntity)
+RETURN dep.id AS id, dep.stable_key AS stable_key, dep.kind AS kind, source.id AS source_id, destination.id AS destination_id`;
 
 export function batchRows<T>(items: readonly T[], size: number): T[][] {
   const batches: T[][] = [];
@@ -143,26 +142,15 @@ export async function ingestExtract(
       await boltRun(session, UPSERT_VERTICES, { rows }, key);
       vertexBatches += 1;
     }
+    const clearKey = mutationIdempotencyKey("clr", 0, { op: "clear-depends-on" });
+    idempotencyKeys.push(clearKey);
+    await boltRun(session, DELETE_ALL_RELATIONSHIPS, {}, clearKey);
     let relationshipBatches = 0;
     for (const [index, rows] of batchRows(relationships, RELATIONSHIP_BATCH_SIZE).entries()) {
       const key = mutationIdempotencyKey("rel", index, rows);
       idempotencyKeys.push(key);
       await boltRun(session, MERGE_RELATIONSHIPS, { rows }, key);
       relationshipBatches += 1;
-    }
-    const snapshot = await readGraphSnapshot(session);
-    const stale = snapshot.relationships.filter(
-      (rel) => !extracted.relationships.some((item) => item.id === numberValue(rel.id)),
-    );
-    if (stale.length > 0) {
-      for (const [index, rows] of batchRows(
-        stale.map((rel) => ({ relationship_id: numberValue(rel.id) })),
-        RELATIONSHIP_BATCH_SIZE,
-      ).entries()) {
-        const key = mutationIdempotencyKey("del", index, rows);
-        idempotencyKeys.push(key);
-        await boltRun(session, DELETE_STALE_RELATIONSHIPS, { rows }, key);
-      }
     }
     const finalSnapshot = await readGraphSnapshot(session);
     return {
