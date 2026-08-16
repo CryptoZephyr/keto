@@ -1,0 +1,278 @@
+{
+  "repository": "keto-fixture",
+  "identity_version": 1,
+  "entities": [
+    {
+      "id": 912369895764475,
+      "stable_key": "keto-fixture:src/aliased.test.ts:test",
+      "path": "src/aliased.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 495044325944144,
+      "stable_key": "keto-fixture:src/aliased.ts:file",
+      "path": "src/aliased.ts",
+      "kind": "file"
+    },
+    {
+      "id": 1869161534039380,
+      "stable_key": "keto-fixture:src/auth.ts:file",
+      "path": "src/auth.ts",
+      "kind": "file"
+    },
+    {
+      "id": 321081877349995,
+      "stable_key": "keto-fixture:src/cycle-a.ts:file",
+      "path": "src/cycle-a.ts",
+      "kind": "file"
+    },
+    {
+      "id": 3497015083900780,
+      "stable_key": "keto-fixture:src/cycle-b.ts:file",
+      "path": "src/cycle-b.ts",
+      "kind": "file"
+    },
+    {
+      "id": 137919038276592,
+      "stable_key": "keto-fixture:src/cycle.test.ts:test",
+      "path": "src/cycle.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 4955038410336184,
+      "stable_key": "keto-fixture:src/dynamic.test.ts:test",
+      "path": "src/dynamic.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 5842369189114579,
+      "stable_key": "keto-fixture:src/dynamic.ts:file",
+      "path": "src/dynamic.ts",
+      "kind": "file"
+    },
+    {
+      "id": 1230956841125281,
+      "stable_key": "keto-fixture:src/isolated.test.ts:test",
+      "path": "src/isolated.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 4971634080157465,
+      "stable_key": "keto-fixture:src/isolated.ts:file",
+      "path": "src/isolated.ts",
+      "kind": "file"
+    },
+    {
+      "id": 4772346303989965,
+      "stable_key": "keto-fixture:src/leaf.ts:file",
+      "path": "src/leaf.ts",
+      "kind": "file"
+    },
+    {
+      "id": 6642295824057936,
+      "stable_key": "keto-fixture:src/lib/helper.ts:file",
+      "path": "src/lib/helper.ts",
+      "kind": "file"
+    },
+    {
+      "id": 6494983162700869,
+      "stable_key": "keto-fixture:src/mid1.test.ts:test",
+      "path": "src/mid1.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 8402419754134073,
+      "stable_key": "keto-fixture:src/mid1.ts:file",
+      "path": "src/mid1.ts",
+      "kind": "file"
+    },
+    {
+      "id": 5542954961130130,
+      "stable_key": "keto-fixture:src/mid2.ts:file",
+      "path": "src/mid2.ts",
+      "kind": "file"
+    },
+    {
+      "id": 5695976231685933,
+      "stable_key": "keto-fixture:src/mid3.ts:file",
+      "path": "src/mid3.ts",
+      "kind": "file"
+    },
+    {
+      "id": 3965640848017784,
+      "stable_key": "keto-fixture:src/opaque.test.ts:test",
+      "path": "src/opaque.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 1406244286343830,
+      "stable_key": "keto-fixture:src/opaque.ts:file",
+      "path": "src/opaque.ts",
+      "kind": "file"
+    },
+    {
+      "id": 6378252387355797,
+      "stable_key": "keto-fixture:src/user.test.ts:test",
+      "path": "src/user.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 1497254129239964,
+      "stable_key": "keto-fixture:src/user.ts:file",
+      "path": "src/user.ts",
+      "kind": "file"
+    },
+    {
+      "id": 1640450124289002,
+      "stable_key": "keto-fixture:src/util.test.ts:test",
+      "path": "src/util.test.ts",
+      "kind": "test"
+    },
+    {
+      "id": 2206854290622206,
+      "stable_key": "keto-fixture:src/util.ts:file",
+      "path": "src/util.ts",
+      "kind": "file"
+    },
+    {
+      "id": 4686429638202317,
+      "stable_key": "keto-fixture:vitest.config.ts:file",
+      "path": "vitest.config.ts",
+      "kind": "file"
+    }
+  ],
+  "relationships": [
+    {
+      "id": 7247034822254403,
+      "stable_key": "keto-fixture:src/aliased.test.ts:test>tests>keto-fixture:src/aliased.ts:file|./aliased",
+      "source_path": "src/aliased.test.ts",
+      "destination_path": "src/aliased.ts",
+      "kind": "tests",
+      "specifier": "./aliased"
+    },
+    {
+      "id": 7070136490123375,
+      "stable_key": "keto-fixture:src/aliased.ts:file>imports>keto-fixture:src/lib/helper.ts:file|@lib/helper",
+      "source_path": "src/aliased.ts",
+      "destination_path": "src/lib/helper.ts",
+      "kind": "imports",
+      "specifier": "@lib/helper"
+    },
+    {
+      "id": 6618696955931376,
+      "stable_key": "keto-fixture:src/cycle-a.ts:file>imports>keto-fixture:src/cycle-b.ts:file|./cycle-b",
+      "source_path": "src/cycle-a.ts",
+      "destination_path": "src/cycle-b.ts",
+      "kind": "imports",
+      "specifier": "./cycle-b"
+    },
+    {
+      "id": 5463255350620211,
+      "stable_key": "keto-fixture:src/cycle-b.ts:file>imports>keto-fixture:src/cycle-a.ts:file|./cycle-a",
+      "source_path": "src/cycle-b.ts",
+      "destination_path": "src/cycle-a.ts",
+      "kind": "imports",
+      "specifier": "./cycle-a"
+    },
+    {
+      "id": 7680385343171384,
+      "stable_key": "keto-fixture:src/cycle.test.ts:test>tests>keto-fixture:src/cycle-a.ts:file|./cycle-a",
+      "source_path": "src/cycle.test.ts",
+      "destination_path": "src/cycle-a.ts",
+      "kind": "tests",
+      "specifier": "./cycle-a"
+    },
+    {
+      "id": 3884443683885813,
+      "stable_key": "keto-fixture:src/dynamic.test.ts:test>tests>keto-fixture:src/dynamic.ts:file|./dynamic",
+      "source_path": "src/dynamic.test.ts",
+      "destination_path": "src/dynamic.ts",
+      "kind": "tests",
+      "specifier": "./dynamic"
+    },
+    {
+      "id": 181963330619587,
+      "stable_key": "keto-fixture:src/isolated.test.ts:test>tests>keto-fixture:src/isolated.ts:file|./isolated",
+      "source_path": "src/isolated.test.ts",
+      "destination_path": "src/isolated.ts",
+      "kind": "tests",
+      "specifier": "./isolated"
+    },
+    {
+      "id": 3737422291203372,
+      "stable_key": "keto-fixture:src/mid1.test.ts:test>tests>keto-fixture:src/mid1.ts:file|./mid1",
+      "source_path": "src/mid1.test.ts",
+      "destination_path": "src/mid1.ts",
+      "kind": "tests",
+      "specifier": "./mid1"
+    },
+    {
+      "id": 7799398908964278,
+      "stable_key": "keto-fixture:src/mid1.ts:file>imports>keto-fixture:src/mid2.ts:file|./mid2",
+      "source_path": "src/mid1.ts",
+      "destination_path": "src/mid2.ts",
+      "kind": "imports",
+      "specifier": "./mid2"
+    },
+    {
+      "id": 1179797552918552,
+      "stable_key": "keto-fixture:src/mid2.ts:file>imports>keto-fixture:src/mid3.ts:file|./mid3",
+      "source_path": "src/mid2.ts",
+      "destination_path": "src/mid3.ts",
+      "kind": "imports",
+      "specifier": "./mid3"
+    },
+    {
+      "id": 2884849757597695,
+      "stable_key": "keto-fixture:src/mid3.ts:file>imports>keto-fixture:src/leaf.ts:file|./leaf",
+      "source_path": "src/mid3.ts",
+      "destination_path": "src/leaf.ts",
+      "kind": "imports",
+      "specifier": "./leaf"
+    },
+    {
+      "id": 5625328685655893,
+      "stable_key": "keto-fixture:src/opaque.test.ts:test>tests>keto-fixture:src/opaque.ts:file|./opaque",
+      "source_path": "src/opaque.test.ts",
+      "destination_path": "src/opaque.ts",
+      "kind": "tests",
+      "specifier": "./opaque"
+    },
+    {
+      "id": 6631721027820724,
+      "stable_key": "keto-fixture:src/user.test.ts:test>tests>keto-fixture:src/user.ts:file|./user",
+      "source_path": "src/user.test.ts",
+      "destination_path": "src/user.ts",
+      "kind": "tests",
+      "specifier": "./user"
+    },
+    {
+      "id": 7170057246863132,
+      "stable_key": "keto-fixture:src/user.ts:file>imports>keto-fixture:src/auth.ts:file|./auth",
+      "source_path": "src/user.ts",
+      "destination_path": "src/auth.ts",
+      "kind": "imports",
+      "specifier": "./auth"
+    },
+    {
+      "id": 8235331093608346,
+      "stable_key": "keto-fixture:src/util.test.ts:test>tests>keto-fixture:src/util.ts:file|./util",
+      "source_path": "src/util.test.ts",
+      "destination_path": "src/util.ts",
+      "kind": "tests",
+      "specifier": "./util"
+    }
+  ],
+  "warnings": [
+    {
+      "type": "dynamic_import",
+      "path": "src/dynamic.ts",
+      "detail": "dynamic import() with a non-literal specifier"
+    },
+    {
+      "type": "dynamic_import",
+      "path": "src/opaque.ts",
+      "detail": "require() with a non-literal specifier"
+    }
+  ]
+}
