@@ -108,4 +108,36 @@ describe("graph replacement ingestion", () => {
     await expect(ingestExtract(config, graph)).rejects.toThrow("delete failed");
     expect(boltRun.mock.calls.some((call) => call[1] === UPSERT_VERTICES)).toBe(false);
   });
+
+  it("stops before upsert when a later deletion batch fails", async () => {
+    const graph = buildGraph({
+      repository: "partially-deleted-replacement",
+      files: { "src/core.ts": "export const core = 1;\n" },
+    });
+    const config = loadConfig({ repository: graph.repository });
+    let deletionAttempt = 0;
+    boltRun.mockImplementation(async (_session, query: string) => {
+      if (query === READ_VERTEX_IDS) {
+        return {
+          records: Array.from({ length: 33 }, (_, id) => ({ id })),
+          bookmark: undefined,
+        };
+      }
+      if (query === DELETE_VERTICES) {
+        deletionAttempt += 1;
+        if (deletionAttempt === 2) throw new Error("second delete batch failed");
+      }
+      return { records: [], bookmark: undefined };
+    });
+
+    await expect(ingestExtract(config, graph)).rejects.toThrow(
+      "second delete batch failed",
+    );
+    const deleteCalls = boltRun.mock.calls.filter((call) => call[1] === DELETE_VERTICES);
+    expect(deleteCalls).toHaveLength(2);
+    expect(deleteCalls[0]?.[2].rows).toHaveLength(32);
+    expect(deleteCalls[1]?.[2].rows).toHaveLength(1);
+    expect(deleteCalls[0]?.[4]).not.toBe(deleteCalls[1]?.[4]);
+    expect(boltRun.mock.calls.some((call) => call[1] === UPSERT_VERTICES)).toBe(false);
+  });
 });
