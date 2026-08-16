@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { KetoConfig } from "./config.js";
 import { assertIdempotencyKey, boltRun, withBoltSession } from "./hydra/bolt.js";
+import { httpQuery } from "./hydra/http.js";
 import type { CodeEntity, DependsOnEdge, ExtractResult } from "./types.js";
 
 export const VERTEX_BATCH_SIZE = 32;
@@ -144,8 +145,13 @@ export async function ingestExtract(
     const relationships = relationshipRows(extracted.relationships);
     const clearKey = mutationIdempotencyKey("clr", 0, { op: "detach-codeentity" });
     idempotencyKeys.push(clearKey);
-    await boltRun(session, CLEAR_GRAPH, {}, clearKey);
-    process.stdout.write("Cleared existing CodeEntity graph\n");
+    try {
+      await httpQuery(config, CLEAR_GRAPH, `keto-${clearKey}`);
+      process.stdout.write("Cleared existing CodeEntity graph\n");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stdout.write(`Clear graph skipped: ${message}\n`);
+    }
     let vertexBatches = 0;
     for (const [index, rows] of batchRows(vertices, VERTEX_BATCH_SIZE).entries()) {
       const key = mutationIdempotencyKey("vtx", index, rows);
