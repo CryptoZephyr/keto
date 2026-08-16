@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import type { KetoConfig } from "./config.js";
 import { assertIdempotencyKey, boltRun, withBoltSession } from "./hydra/bolt.js";
-import { httpQuery } from "./hydra/http.js";
 import type { CodeEntity, DependsOnEdge, ExtractResult } from "./types.js";
 
 export const VERTEX_BATCH_SIZE = 32;
@@ -19,7 +18,7 @@ SET n:CodeEntity,
 
 export const MERGE_RELATIONSHIPS = `UNWIND $rows AS row
 MATCH (source:CodeEntity {id: row.source_id}), (destination:CodeEntity {id: row.destination_id})
-CREATE (source)-[:DEPENDS_ON {id: row.relationship_id, stable_key: row.stable_key, kind: row.kind, specifier: row.specifier}]->(destination)`;
+MERGE (source)-[:DEPENDS_ON {id: row.relationship_id}]->(destination)`;
 
 export const CLEAR_GRAPH = `MATCH (n:CodeEntity) DETACH DELETE n`;
 
@@ -143,15 +142,6 @@ export async function ingestExtract(
     const idempotencyKeys: string[] = [];
     const vertices = vertexRows(extracted.entities);
     const relationships = relationshipRows(extracted.relationships);
-    const clearKey = mutationIdempotencyKey("clr", 0, { op: "detach-codeentity" });
-    idempotencyKeys.push(clearKey);
-    try {
-      await httpQuery(config, CLEAR_GRAPH, `keto-${clearKey}`);
-      process.stdout.write("Cleared existing CodeEntity graph\n");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      process.stdout.write(`Clear graph skipped: ${message}\n`);
-    }
     let vertexBatches = 0;
     for (const [index, rows] of batchRows(vertices, VERTEX_BATCH_SIZE).entries()) {
       const key = mutationIdempotencyKey("vtx", index, rows);

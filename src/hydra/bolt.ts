@@ -54,10 +54,23 @@ export async function boltRun(
   const metadata = idempotencyKey
     ? { "hydradb.idempotency_key": assertIdempotencyKey(idempotencyKey) }
     : undefined;
-  const result = await session.run(query, integerize(parameters), metadata ? { metadata } : {});
-  const records = result.records.map((record) => record.toObject());
-  const bookmark = lastBookmark(session);
-  return { records, bookmark };
+  try {
+    const result = await session.run(query, integerize(parameters), metadata ? { metadata } : {});
+    const records = result.records.map((record) => record.toObject());
+    const bookmark = lastBookmark(session);
+    return { records, bookmark };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const labeled = `Bolt ${query.split("\n")[0]}: ${message}`;
+    throw Object.assign(new Error(labeled), {
+      kind: /ECONNREFUSED|Failed to connect/i.test(message)
+        ? ("unavailable" as const)
+        : /timeout/i.test(message)
+          ? ("timeout" as const)
+          : ("rejected" as const),
+      message: labeled,
+    });
+  }
 }
 
 export async function boltWrite(
