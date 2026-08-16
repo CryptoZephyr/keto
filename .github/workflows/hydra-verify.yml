@@ -1,0 +1,78 @@
+name: HydraDB verify
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/hydra-verify.yml"
+      - "scripts/**"
+      - "src/**"
+      - "fixtures/**"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+jobs:
+  hydra:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Start pinned HydraDB
+        run: bash scripts/start-hydradb.sh
+      - name: HTTP and Bolt proof
+        env:
+          HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
+        run: node scripts/hydra-proof.mjs
+      - name: Reset disposable setup graph
+        run: |
+          docker rm -f keto-hydradb
+          rm -rf .hydradb/store .hydradb/cache
+          mkdir -p .hydradb/store .hydradb/cache
+          bash scripts/start-hydradb.sh
+      - name: Index fixture twice
+        env:
+          HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
+        run: |
+          node bin/keto.mjs index --repo fixtures/monorepo | tee index-1.log
+          node bin/keto.mjs index --repo fixtures/monorepo | tee index-2.log
+          node bin/keto.mjs readback --repo fixtures/monorepo | tee hydra-idempotency.log
+      - name: Explain and test dry-run
+        env:
+          HYDRADB_AUTH_TOKEN: local-development-token-32-bytes
+        run: |
+          node bin/keto.mjs explain --repo fixtures/monorepo --changed src/util.ts --json | tee explain-1.log
+          node bin/keto.mjs explain --repo fixtures/monorepo --changed src/leaf.ts --json | tee explain-2.log
+          node bin/keto.mjs test --repo fixtures/monorepo --changed src/util.ts --dry-run | tee test-selected.log
+          node bin/keto.mjs test --repo fixtures/monorepo --changed src/dynamic.ts --dry-run | tee test-fallback.log
+      - name: MSpaths query text check
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("explain-1.log").read_text()
+          assert "algo.MSpaths" in text
+          assert "IMPORTS|CALLS" not in text
+          assert "MATCH path =" not in text
+          print("mspaths-query-ok")
+          PY
+      - name: Upload proof logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hydra-proof
+          path: |
+            index-1.log
+            index-2.log
+            hydra-idempotency.log
+            explain-1.log
+            explain-2.log
+            test-selected.log
+            test-fallback.log
+          if-no-files-found: warn
