@@ -1,0 +1,10 @@
+export { assignEntityIdentity, assertNoCollisions, detectCollisions, entityId, hashToId, normalizePath, relationshipId, stableKey } from "./identity.js";
+export { buildGraph, extractImportsFromSource, extractRepository, resolveImportSpecifier } from "./extract.js";
+export { encodeMSPathsQuery } from "./query-encode.js";
+export { decideFallback } from "./fallback.js";
+export { compareExtractedGraph, compareImpact, recallIsComplete } from "./fixture-compare.js";
+export { extractTestsFromPaths } from "./impact.js";
+export { ingestExtract, mutationIdempotencyKey, compareSnapshotToExtract } from "./ingest.js";
+export { explainChange } from "./explain.js";
+export { runTestCommand } from "./test-command.js";
+export { classifyChangedPath } from "./unsafe-paths.js";
