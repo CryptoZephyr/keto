@@ -1,0 +1,32 @@
+{
+  "name": "keto",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Graph-native PR impact analysis and safe test routing for coding agents, backed by HydraDB.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "keto": "./bin/keto.mjs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "keto": "node ./bin/keto.mjs",
+    "keto:index": "node ./bin/keto.mjs index",
+    "keto:explain": "node ./bin/keto.mjs explain",
+    "keto:test": "node ./bin/keto.mjs test",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "neo4j-driver": "^5.28.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "vitest": "^3.2.4"
+  }
+}
