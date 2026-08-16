@@ -7,6 +7,7 @@ export interface KetoConfig {
   authToken: string;
   namespace: string;
   graphId: string;
+  boltDatabase: string;
   cellId: string;
   queryTimeoutMs: number;
   repository: string;
@@ -20,6 +21,7 @@ export function loadConfig(overrides: Partial<KetoConfig> = {}): KetoConfig {
       overrides.authToken ?? env("HYDRADB_AUTH_TOKEN", "local-development-token-32-bytes"),
     namespace: overrides.namespace ?? env("HYDRADB_NAMESPACE", "keto"),
     graphId: overrides.graphId ?? env("HYDRADB_GRAPH_ID", "keto"),
+    boltDatabase: overrides.boltDatabase ?? env("HYDRADB_BOLT_DATABASE", "default"),
     cellId: overrides.cellId ?? env("HYDRADB_CELL_ID", "cell-0"),
     queryTimeoutMs: overrides.queryTimeoutMs ?? numberEnv("HYDRADB_QUERY_TIMEOUT_MS", 10_000),
     repository: overrides.repository ?? env("KETO_REPOSITORY", "keto-fixture"),

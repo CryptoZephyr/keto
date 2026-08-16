@@ -8,6 +8,7 @@ const httpUrl = process.env.HYDRADB_HTTP_URL ?? "http://127.0.0.1:8443";
 const boltUrl = process.env.HYDRADB_BOLT_URL ?? "bolt://127.0.0.1:7687";
 const namespace = process.env.HYDRADB_NAMESPACE ?? "keto";
 const graphId = process.env.HYDRADB_GRAPH_ID ?? "keto";
+const boltDatabase = process.env.HYDRADB_BOLT_DATABASE ?? "default";
 const cellId = process.env.HYDRADB_CELL_ID ?? "cell-0";
 
 function redact(text) {
@@ -65,7 +66,7 @@ async function boltConnect() {
     { encrypted: false },
   );
   try {
-    const session = driver.session({ database: graphId });
+    const session = driver.session({ database: boltDatabase });
     const result = await session.run("MATCH (b {id: 2}) RETURN b.id AS id");
     const id = result.records[0]?.get("id");
     const number = typeof id?.toNumber === "function" ? id.toNumber() : Number(id);

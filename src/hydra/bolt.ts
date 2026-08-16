@@ -32,7 +32,7 @@ export async function withBoltSession<T>(
 ): Promise<T> {
   const driver = createBoltDriver(config);
   const session = driver.session({
-    database: config.graphId,
+    database: config.boltDatabase,
     defaultAccessMode: neo4j.session.WRITE,
   });
   try {
