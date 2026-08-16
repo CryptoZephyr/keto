@@ -20,8 +20,9 @@ export const MERGE_RELATIONSHIPS = `UNWIND $rows AS row
 MATCH (source:CodeEntity {id: row.source_id}), (destination:CodeEntity {id: row.destination_id})
 CREATE (source)-[:DEPENDS_ON {id: row.relationship_id, stable_key: row.stable_key, kind: row.kind, specifier: row.specifier}]->(destination)`;
 
-export const DELETE_ALL_RELATIONSHIPS = `MATCH (source:CodeEntity)-[dep:DEPENDS_ON]->(destination:CodeEntity)
-DELETE dep`;
+export const CLEAR_GRAPH = `MATCH (n:CodeEntity) DETACH DELETE n`;
+
+export const DELETE_ALL_RELATIONSHIPS = CLEAR_GRAPH;
 
 export const DELETE_STALE_RELATIONSHIPS = `UNWIND $rows AS row
 MATCH ()-[dep:DEPENDS_ON {id: row.relationship_id}]->()
@@ -30,8 +31,10 @@ DELETE dep`;
 export const READ_VERTICES = `MATCH (n:CodeEntity)
 RETURN n.id AS id, n.stable_key AS stable_key, n.path AS path, n.kind AS kind`;
 
-export const READ_RELATIONSHIPS = `MATCH (source:CodeEntity)-[dep:DEPENDS_ON]->(destination:CodeEntity)
-RETURN dep.id AS id, dep.stable_key AS stable_key, dep.kind AS kind, source.id AS source_id, destination.id AS destination_id`;
+// HydraDB 0.1.1 does not bind relationship variables for RETURN (unbound `r`/`dep`).
+// Read topology from the endpoint vertices only.
+export const READ_RELATIONSHIPS = `MATCH (source:CodeEntity)-[:DEPENDS_ON]->(destination:CodeEntity)
+RETURN source.id AS source_id, source.stable_key AS source_key, destination.id AS destination_id, destination.stable_key AS dest_key`;
 
 export function batchRows<T>(items: readonly T[], size: number): T[][] {
   const batches: T[][] = [];
@@ -106,8 +109,12 @@ export function compareSnapshotToExtract(
 ): { match: boolean; detail: string } {
   const vertexKeys = new Set(snapshot.vertices.map((item) => item.stable_key));
   const extractVertexKeys = new Set(extracted.entities.map((item) => item.stable_key));
-  const relKeys = new Set(snapshot.relationships.map((item) => item.stable_key));
-  const extractRelKeys = new Set(extracted.relationships.map((item) => item.stable_key));
+  const relKeys = new Set(
+    snapshot.relationships.map((item) => `${item.source_id}->${item.destination_id}`),
+  );
+  const extractRelKeys = new Set(
+    extracted.relationships.map((item) => `${item.source_id}->${item.destination_id}`),
+  );
   const missingVertices = [...extractVertexKeys].filter((key) => !vertexKeys.has(key));
   const extraVertices = [...vertexKeys].filter((key) => !extractVertexKeys.has(key));
   const missingRels = [...extractRelKeys].filter((key) => !relKeys.has(key));
@@ -135,6 +142,10 @@ export async function ingestExtract(
     const idempotencyKeys: string[] = [];
     const vertices = vertexRows(extracted.entities);
     const relationships = relationshipRows(extracted.relationships);
+    const clearKey = mutationIdempotencyKey("clr", 0, { op: "detach-codeentity" });
+    idempotencyKeys.push(clearKey);
+    await boltRun(session, CLEAR_GRAPH, {}, clearKey);
+    process.stdout.write("Cleared existing CodeEntity graph\n");
     let vertexBatches = 0;
     for (const [index, rows] of batchRows(vertices, VERTEX_BATCH_SIZE).entries()) {
       const key = mutationIdempotencyKey("vtx", index, rows);
@@ -143,10 +154,6 @@ export async function ingestExtract(
       vertexBatches += 1;
     }
     process.stdout.write(`Upserted vertex batches=${vertexBatches}\n`);
-    const clearKey = mutationIdempotencyKey("clr", 0, { op: "clear-depends-on" });
-    idempotencyKeys.push(clearKey);
-    await boltRun(session, DELETE_ALL_RELATIONSHIPS, {}, clearKey);
-    process.stdout.write("Cleared existing DEPENDS_ON relationships\n");
     let relationshipBatches = 0;
     for (const [index, rows] of batchRows(relationships, RELATIONSHIP_BATCH_SIZE).entries()) {
       const key = mutationIdempotencyKey("rel", index, rows);
@@ -184,9 +191,9 @@ async function readGraphSnapshot(
       kind: String(row.kind),
     })),
     relationships: relationships.records.map((row) => ({
-      id: numberValue(row.id),
-      stable_key: String(row.stable_key),
-      kind: String(row.kind),
+      id: 0,
+      stable_key: `${String(row.source_key)}->${String(row.dest_key)}`,
+      kind: "imports",
       source_id: numberValue(row.source_id),
       destination_id: numberValue(row.destination_id),
     })),

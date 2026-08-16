@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MERGE_RELATIONSHIPS,
+  READ_RELATIONSHIPS,
   UPSERT_VERTICES,
   batchRows,
   compareSnapshotToExtract,
@@ -25,6 +26,8 @@ describe("ingest helpers", () => {
     expect(UPSERT_VERTICES).toContain("UNWIND $rows AS row");
     expect(UPSERT_VERTICES).toContain("MERGE (n {id: row.id})");
     expect(MERGE_RELATIONSHIPS).toContain("CREATE (source)-[:DEPENDS_ON {id: row.relationship_id, stable_key: row.stable_key, kind: row.kind, specifier: row.specifier}]->(destination)");
+    expect(READ_RELATIONSHIPS).toContain("MATCH (source:CodeEntity)-[:DEPENDS_ON]->(destination:CodeEntity)");
+    expect(READ_RELATIONSHIPS).not.toMatch(/\[[A-Za-z]+:DEPENDS_ON\]/);
     expect(batchRows(vertices, 1).length).toBe(vertices.length);
     const key = mutationIdempotencyKey("vtx", 0, vertices);
     expect(key).toBe(mutationIdempotencyKey("vtx", 0, vertices));
