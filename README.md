@@ -84,7 +84,7 @@ The HTTP proof must return vertex id `2`. Reset the disposable setup graph
 before indexing the fixture (`docker rm -f keto-hydradb`, wipe
 `.hydradb/store` and `.hydradb/cache`, rerun `scripts/start-hydradb.sh`).
 
-Full container flags live in `setup.md` and `scripts/start-hydradb.sh`.
+Full container flags live in `scripts/start-hydradb.sh`.
 
 `graph-indexer` is optional and must not be required for the first
 correctness milestone. After fixture recall passes on canonical reads, see
@@ -114,12 +114,6 @@ alias import, and a root-config change. Expected extract identities live in
 Measured results, or an explicit statement that none exist, are in
 `docs/BENCHMARKS.md`. This README does not claim sub-second traversal,
 CI percentage savings, precision, or graph scale.
-
-## Demo
-
-The three-minute plan is `docs/DEMO.md` (problem, product, working demo, why
-HydraDB matters). Recording the video and submitting the official form need a
-human and a public URL.
 
 ## Attribution
 

@@ -9,7 +9,7 @@ const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8"
 const envExample = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 
-describe("setup.md guardrails in shipped files", () => {
+describe("HydraDB setup guardrails in shipped files", () => {
   it("pins HydraDB 0.1.1 and binds Bolt/HTTP/admin to loopback only", () => {
     expect(startScript).toContain("ghcr.io/hydra-db/hydradb:0.1.1");
     expect(startScript).toContain("-p 127.0.0.1:7687:7687");

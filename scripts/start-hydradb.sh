@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the pinned HydraDB node on Codespace loopback. See setup.md.
+# Start the pinned HydraDB node on Codespace loopback.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
