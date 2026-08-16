@@ -1,0 +1,137 @@
+name: Keto
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Git ref to diff against
+        required: false
+        default: origin/main
+      changed:
+        description: Optional single changed file (overrides git diff)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    env:
+      HYDRADB_BOLT_URL: bolt://127.0.0.1:7687
+      HYDRADB_HTTP_URL: http://127.0.0.1:8443
+      HYDRADB_AUTH_TOKEN: ${{ secrets.HYDRADB_AUTH_TOKEN }}
+      HYDRADB_NAMESPACE: keto
+      HYDRADB_GRAPH_ID: keto
+      HYDRADB_CELL_ID: cell-0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Explain impact
+        id: explain
+        env:
+          BASE: ${{ github.event.inputs.base || github.event.pull_request.base.sha || 'HEAD^' }}
+          CHANGED: ${{ github.event.inputs.changed }}
+        run: |
+          set +e
+          if [ -n "$CHANGED" ]; then
+            node bin/keto.mjs explain --repo fixtures/monorepo --changed "$CHANGED" --json > explain.json
+          else
+            node bin/keto.mjs explain --repo fixtures/monorepo --base "$BASE" --json > explain.json
+          fi
+          status=$?
+          set -e
+          if [ ! -s explain.json ]; then
+            printf '%s\n' '{"mode":"full_suite","reasons":[{"code":"hydradb_unavailable","detail":"explain produced no JSON"}],"selectedTests":[],"affectedTests":[],"affectedFiles":[],"changed":[]}' > explain.json
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import json, os
+          data = json.load(open("explain.json"))
+          mode = data.get("mode", "full_suite")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"mode={mode}\n")
+          PY
+
+      - name: Agent JSON
+        run: |
+          cp explain.json keto-agent.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open("explain.json"))
+          # Fail closed: never treat a missing/invalid report as selected.
+          if data.get("mode") != "selected":
+              data["mode"] = "full_suite"
+              data["selectedTests"] = []
+          json.dump(data, open("keto-agent.json", "w"), indent=2)
+          print("wrote keto-agent.json mode=" + data.get("mode", "full_suite"))
+          PY
+
+      - name: PR summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('keto-agent.json', 'utf8'));
+            const reasons = (report.reasons || [])
+              .map((r) => `- \`${r.code}\`: ${r.detail}`)
+              .join('\n') || '- none';
+            const tests = (report.affectedTests || [])
+              .map((t) => {
+                const path = typeof t === 'string' ? t : t.path;
+                const evidence = t.paths && t.paths[0] ? t.paths[0].join(' <- ') : '';
+                return `- ${path}${evidence ? ` (${evidence})` : ''}`;
+              })
+              .join('\n') || '- none (full suite)';
+            const files = (report.affectedFiles || []).map((f) => `- ${f}`).join('\n') || '- none';
+            const body = [
+              '## Keto impact',
+              '',
+              `Mode: **${report.mode}**`,
+              '',
+              '### Changed',
+              ...(report.changed || []).map((f) => `- ${f}`),
+              '',
+              '### Affected files',
+              files,
+              '',
+              '### Affected tests',
+              tests,
+              '',
+              '### Reasons',
+              reasons,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Run tests (fail closed)
+        env:
+          MODE: ${{ steps.explain.outputs.mode }}
+        run: |
+          if [ "$MODE" = "selected" ]; then
+            node bin/keto.mjs test --repo fixtures/monorepo --changed src/util.ts
+          else
+            echo "Failing closed into the fixture full suite"
+            npx vitest run --root fixtures/monorepo
+          fi
