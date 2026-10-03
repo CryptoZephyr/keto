@@ -386,7 +386,9 @@ export async function readTsconfigAliases(repoRoot: string): Promise<AliasMap> {
   for (const name of ["tsconfig.json", "jsconfig.json"]) {
     try {
       const raw = await readFile(join(repoRoot, name), "utf8");
-      const parsed = JSON.parse(raw) as {
+      const { config, error } = ts.parseConfigFileTextToJson(name, raw);
+      if (error) continue;
+      const parsed = config as {
         compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string };
       };
       const paths = parsed.compilerOptions?.paths ?? {};
