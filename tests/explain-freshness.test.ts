@@ -36,6 +36,7 @@ describe("explain graph freshness gate", () => {
       "src/core.ts": "export const core = 1;\n",
       "src/core.test.ts":
         'import { core } from "./core";\nexport const tested = core;\n',
+      "src/other.test.ts": "export const other = 1;\n",
     };
     const repoRoot = await makeRepository(files);
     const extract = buildGraph({ repository: "freshness", files });
@@ -80,6 +81,17 @@ describe("explain graph freshness gate", () => {
     });
     expect(fresh.mode).toBe("selected");
     expect(fresh.selectedTests).toEqual(["src/core.test.ts"]);
+
+    const withChangedTest = await explainChange({
+      repoRoot,
+      changed: ["src/core.ts", "src/other.test.ts"],
+      config,
+    });
+    expect(withChangedTest.mode).toBe("selected");
+    expect(withChangedTest.selectedTests).toEqual([
+      "src/core.test.ts",
+      "src/other.test.ts",
+    ]);
 
     const stale = structuredClone(snapshot);
     stale.vertices.find((vertex) => vertex.path === "src/core.ts")!.content_hash =

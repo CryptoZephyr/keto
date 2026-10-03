@@ -154,7 +154,7 @@ export async function explainChange(request: ExplainRequest): Promise<ExplainRes
     }
   }
 
-  const affectedTests = extractTestsFromPaths(paths);
+  const affectedTests = withChangedTests(extractTestsFromPaths(paths), changed, extract);
   const selected = affectedTests.map((item) => item.path);
   const fixtureComparison =
     expectedCase?.affected_tests && !expectedCase.fallback
@@ -200,6 +200,21 @@ export async function explainChange(request: ExplainRequest): Promise<ExplainRes
     extract,
     fixtureComparison,
   };
+}
+
+function withChangedTests(
+  affectedTests: ImpactTest[],
+  changed: readonly string[],
+  extract: ExtractResult,
+): ImpactTest[] {
+  const byPath = new Map(affectedTests.map((test) => [test.path, test]));
+  for (const entity of extract.entities) {
+    if (entity.kind !== "test" || !changed.includes(entity.path)) continue;
+    if (!byPath.has(entity.path)) {
+      byPath.set(entity.path, { path: entity.path, paths: [[entity.path]] });
+    }
+  }
+  return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
 
 async function readHydraEvidence(input: {

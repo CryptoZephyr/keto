@@ -10,11 +10,17 @@ export async function changedFilesFromGit(
   baseRef: string,
 ): Promise<string[]> {
   const cwd = resolve(repoRoot);
-  const { stdout } = await execFileAsync("git", ["diff", "--name-only", baseRef], {
-    cwd,
-    windowsHide: true,
-  });
-  return stdout
+  const diff = await execFileAsync(
+    "git",
+    ["diff", "--name-only", "--relative", baseRef],
+    { cwd, windowsHide: true },
+  );
+  const untracked = await execFileAsync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard"],
+    { cwd, windowsHide: true },
+  );
+  return `${diff.stdout}\n${untracked.stdout}`
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
